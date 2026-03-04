@@ -736,11 +736,12 @@
       <!-- Left: Images -->
       <div class="form-group">
         <label>Foto Utama <span class="req">*</span></label>
-        <div class="upload-area" id="mainUploadArea">
+        <div class="upload-area" id="mainUploadArea" style="position:relative;">
           <input type="file" id="mainImg" accept="image/*" onchange="handleMainImg(this)">
           <div class="upload-icon">&#128247;</div>
           <div class="upload-text">Klik atau drag foto utama<br><small>JPG, PNG — maks 5MB</small></div>
           <img class="upload-preview" id="mainImgPreview">
+          <button type="button" id="mainImgDel" onclick="deleteMainImg(event)" style="display:none;position:absolute;top:8px;right:8px;background:#D13B3B;color:#fff;border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;z-index:10;line-height:1;">&#215;</button>
         </div>
       </div>
 
@@ -1132,6 +1133,17 @@ function uploadToCloudinary(file, type, idx) {
     });
 }
 
+function deleteMainImg(e) {
+  e.stopPropagation();
+  const prev = document.getElementById('mainImgPreview');
+  prev.src = ''; prev.classList.remove('visible');
+  prev.dataset.cloudUrl = '';
+  document.querySelector('#mainUploadArea .upload-icon').style.display='';
+  document.querySelector('#mainUploadArea .upload-text').style.display='';
+  document.getElementById('mainImg').value = '';
+  document.getElementById('mainImgDel').style.display = 'none';
+}
+
 function handleMainImg(input) {
   const file = input.files[0];
   if(!file) return;
@@ -1143,6 +1155,8 @@ function handleMainImg(input) {
     preview.classList.add('visible');
     document.querySelector('#mainUploadArea .upload-icon').style.display='none';
     document.querySelector('#mainUploadArea .upload-text').style.display='none';
+    const delBtn = document.getElementById('mainImgDel');
+    if(delBtn) delBtn.style.display='block';
   };
   reader.readAsDataURL(file);
   // Upload to Cloudinary
@@ -1275,6 +1289,7 @@ function saveProduct() {
 function editProduct(id) {
   const p = products.find(x=>x.id===id);
   if(!p) return;
+  resetForm(); // clear previous product data first
   switchTab('add');
   document.getElementById('editId').value = p.id;
   document.getElementById('prodName').value = p.name;
@@ -1301,8 +1316,11 @@ function editProduct(id) {
   if(p.mainImg) {
     const prev = document.getElementById('mainImgPreview');
     prev.src = p.mainImg; prev.classList.add('visible');
+    prev.dataset.cloudUrl = p.mainImg;
     document.querySelector('#mainUploadArea .upload-icon').style.display='none';
     document.querySelector('#mainUploadArea .upload-text').style.display='none';
+    const delBtn = document.getElementById('mainImgDel');
+    if(delBtn) delBtn.style.display='block';
   }
 
   extraImgs = p.extraImgs ? [...p.extraImgs] : [null,null,null,null,null,null,null];
@@ -1342,9 +1360,12 @@ function resetForm() {
   document.getElementById('prodCondition').value='Baru';
   const prev = document.getElementById('mainImgPreview');
   prev.src=''; prev.classList.remove('visible');
+  if(prev.dataset) prev.dataset.cloudUrl='';
   document.querySelector('#mainUploadArea .upload-icon').style.display='';
   document.querySelector('#mainUploadArea .upload-text').style.display='';
   document.getElementById('mainImg').value='';
+  const mainDel = document.getElementById('mainImgDel');
+  if(mainDel) mainDel.style.display='none';
   extraImgs=[null,null,null,null,null,null,null];
   buildExtraGrid();
 }
