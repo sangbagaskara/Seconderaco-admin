@@ -186,11 +186,11 @@
   /* ── MULTI IMAGE GRID ── */
   .multi-upload-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
   }
-  @media (max-width: 600px) {
-    .multi-upload-grid { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 700px) {
+    .multi-upload-grid { grid-template-columns: repeat(4, 1fr); }
   }
   .mini-upload {
     position: relative;
@@ -353,6 +353,20 @@
   }
   .card-badge.sale { background: var(--sand); color: var(--charcoal); }
   .card-badge.new { background: var(--red); }
+  .card-badge.coming-soon { background: #7B4AE2; color: #fff; }
+  .card-badge.rare { background: #1B7B4A; color: #fff; }
+  .card-coming-overlay {
+    position: absolute; inset: 0;
+    background: rgba(123,74,226,0.18);
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .card-coming-overlay span {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: .2em;
+    color: #fff; background: #7B4AE2;
+    padding: 6px 16px; border-radius: 2px;
+  }
   .card-sku {
     position: absolute;
     bottom: 8px;
@@ -793,6 +807,15 @@
         <input type="number" id="prodWeight" placeholder="cth. 500">
       </div>
       <div class="form-group">
+        <label>Dimensi (cm)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;">
+          <input type="text" id="prodPanjang" placeholder="Panjang">
+          <input type="text" id="prodLebar" placeholder="Lebar">
+          <input type="text" id="prodTinggi" placeholder="Tinggi">
+        </div>
+        <small style="color:var(--muted);font-size:10px;margin-top:4px;display:block;">P &times; L &times; T &mdash; untuk kalkulasi ongkir</small>
+      </div>
+      <div class="form-group">
         <label>Brand / Merek Asal</label>
         <input type="text" id="prodBrand" placeholder="cth. Levi's, Ralph Lauren, dll.">
       </div>
@@ -824,6 +847,7 @@
           <option value="sale">SALE</option>
           <option value="rare">RARE FIND</option>
           <option value="featured">FEATURED</option>
+          <option value="coming-soon">COMING SOON</option>
         </select>
       </div>
 
@@ -841,7 +865,7 @@
 
       <!-- Foto tambahan -->
       <div class="form-group full">
-        <label>Foto Tambahan (maks. 4 foto)</label>
+        <label>Foto Tambahan (maks. 7 foto)</label>
         <div class="multi-upload-grid" id="extraImgGrid"></div>
       </div>
 
@@ -870,29 +894,22 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// ── CONFIG ──
+const CLOUDINARY_CLOUD = 'dk7lcg6bx';
+const CLOUDINARY_PRESET = 'Second Era Co.';
+const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload';
+
+// ── GOOGLE SHEETS ──
+const GS_URL = 'https://script.google.com/macros/s/AKfycbzx9r562OaOWNZXS-1r-QF6d6kWV4rIq4WAnzX37PIJo5NvW4D0pfxP7LYoNKOOueVF/exec';
+
 // ── STATE ──
 let products = [];
 let activeFilter = 'ALL';
-let extraImgs = [null, null, null, null];
+let extraImgs = [null, null, null, null, null, null, null];
 
 const CATS = ['ALL','OUTERWEAR','DENIM','TOPS','ACCESSORIES','FOOTWEAR','SCENT','LAINNYA'];
 
 // ── INIT ──
-// ── GOOGLE SHEETS CONFIG ──
-const GS_KEY = 'sec_era_gs_url';
-let GS_URL = localStorage.getItem(GS_KEY) || '';
-
-function handleUrlInput(val) {
-  if (val.trim()) document.getElementById('gsUrlInput').style.borderColor = 'rgba(240,237,220,0.6)';
-}
-function saveGsUrl() {
-  const url = document.getElementById('gsUrlInput').value.trim();
-  if (!url) { showStatus('Masukkan URL Apps Script terlebih dahulu', 'error'); return; }
-  GS_URL = url;
-  localStorage.setItem(GS_KEY, url);
-  showStatus('URL disimpan! Memuat data...', 'ok');
-  loadProducts();
-}
 
 function showStatus(msg, type) {
   const el = document.getElementById('gs-status');
@@ -905,17 +922,14 @@ function showStatus(msg, type) {
 
 window.onload = () => {
   // Show saved URL in input if exists
-  if (GS_URL) {
-    document.getElementById('gsUrlInput').value = GS_URL;
-    document.getElementById('gs-config-banner').style.display = 'none'; // hide if already configured
-  }
+  // GS_URL hardcoded - no UI config needed
   loadProducts();
   buildFilters();
   buildExtraGrid();
   renderCatalog();
 };
 
-const SEED_PRODUCTS = [{"id": "1_1772535015167", "name": "Jaket Gunung Burton size L (anti air) 100% original", "sku": "SEC-OW-001-202603", "cat": "OUTERWEAR", "desc": "Jaket Gunung Burton size L, anti air, 100% original. Bahan windproof & waterproof, cocok untuk outdoor/hiking. Kondisi second like new.", "price": "350000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Burton", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "2_1772535015168", "name": "Kemeja kasual Uniqlo size L 100% original", "sku": "SEC-TP-001-202603", "cat": "TOPS", "desc": "Kemeja kasual Uniqlo size L, 100% original. Bahan katun premium, nyaman dipakai sehari-hari. Kondisi second like new.", "price": "150000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Uniqlo", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "3_1772535015169", "name": "Kemeja flanel Uniqlo size L 100% original", "sku": "SEC-TP-002-202603", "cat": "TOPS", "desc": "Kemeja flanel Uniqlo size L, 100% original. Motif kotak-kotak klasik, bahan tebal hangat. Kondisi second like new.", "price": "150000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Uniqlo", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "4_1772535015170", "name": "Kemeja kasual G*P size L 100% original", "sku": "SEC-TP-003-202603", "cat": "TOPS", "desc": "Kemeja kasual GAP size L, 100% original. Desain simpel dan clean, bahan katun berkualitas. Kondisi second like new.", "price": "150000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "GAP", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "5_1772535015171", "name": "Kemeja kasual Uniqlo size L 100% original", "sku": "SEC-TP-004-202603", "cat": "TOPS", "desc": "Kemeja kasual Uniqlo size L, 100% original. Basic shirt yang versatile, cocok formal maupun santai. Kondisi second like new.", "price": "120000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Uniqlo", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "6_1772535015172", "name": "Alchemist Fragrance - Out West | Extrait de Parfum", "sku": "SEC-SC-001-202603", "cat": "SCENT", "desc": "Alchemist Fragrance - Out West | Extrait de Parfum. Decant 30ml. Aroma woody & earthy, tahan lama. 100% original.", "price": "30000", "priceOrig": "", "stock": "30", "size": "Decant", "weight": "30000", "brand": "Alchemist", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "7_1772535015173", "name": "H&M Regular Fit Hoodie Red Hot Chili Peppers (RHCP) 100% Original", "sku": "SEC-OW-002-202603", "cat": "OUTERWEAR", "desc": "H&M Regular Fit Hoodie Red Hot Chili Peppers (RHCP) size L, 100% original. Koleksi band tee special edition. Kondisi second like new.", "price": "300000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "H&M", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "8_1772535015174", "name": "Von Dutch Workshirt Sage Green 100% Original", "sku": "SEC-TP-005-202603", "cat": "TOPS", "desc": "Von Dutch Workshirt Sage Green size L, 100% original. Iconic streetwear brand, warna sage green yang stylish. Kondisi second like new.", "price": "250000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Von Dutch", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "9_1772535015175", "name": "Bespoke Project - Celana Jeans pria Digger Raw Denim Slim Tappered", "sku": "SEC-DN-001-202603", "cat": "DENIM", "desc": "Bespoke Project Celana Jeans Digger Raw Denim Slim Tapered size 32. Denim lokal premium, potongan slim tapered modern. Kondisi second like new.", "price": "200000", "priceOrig": "", "stock": "1", "size": "32", "weight": "1000", "brand": "Bespoke Project", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "10_1772535015176", "name": "Eiger Z - Weekender Ruck 32L 1F Carrier", "sku": "SEC-AC-001-202603", "cat": "ACCESSORIES", "desc": "Eiger Z - Weekender Ruck 32L 1F Carrier. Dimensi: 31×18.5×54 cm. Material polyester 600D dengan finishing water repellent C6. Kondisi like new.", "price": "400000", "priceOrig": "", "stock": "1", "size": "32L", "weight": "1000", "brand": "Eiger Adventure", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}, {"id": "11_1772535015177", "name": "Maternal Disaster - Tiro Bags Duffel bag 100% Original", "sku": "SEC-AC-002-202603", "cat": "ACCESSORIES", "desc": "Maternal Disaster - Tiro Bags Duffel Bag 100% Original. High density polyester hitam, patch leather & metal di depan. Dimensi: 55×28×26 cm, volume 40L. Kondisi like new.", "price": "250000", "priceOrig": "", "stock": "1", "size": "40L", "weight": "1000", "brand": "Maternal Disaster", "material": "", "color": "", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "condition": "Second — Like New", "mainImg": null, "extraImgs": [null, null, null, null], "createdAt": "03/03/2026"}];
+const SEED_PRODUCTS = [{"id": "2_1772535015168", "name": "Jaket Gunung Burton size L (anti air) 100% original", "sku": "SEC-001", "cat": "OUTERWEAR", "desc": "Jaket Gunung Burton size L (anti air) 100% original", "price": "350000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Burton", "material": "", "color": "", "panjang": "75", "lebar": "60", "tinggi": "", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "3_1772535015169", "name": "Kemeja kasual Uniqlo size L 100% original", "sku": "SEC-002", "cat": "TOPS", "desc": "Kemeja kasual Uniqlo size L 100% original", "price": "150000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Uniqlo", "material": "", "color": "", "panjang": "76", "lebar": "56", "tinggi": "", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "4_1772535015170", "name": "Kemeja flanel Uniqlo size L 100% original", "sku": "SEC-003", "cat": "TOPS", "desc": "Kemeja flanel Uniqlo size L 100% original", "price": "150000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Uniqlo", "material": "", "color": "", "panjang": "77", "lebar": "57", "tinggi": "", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "5_1772535015171", "name": "Kemeja kasual G*P size L 100% original", "sku": "SEC-004", "cat": "TOPS", "desc": "Kemeja kasual G*P size L 100% original", "price": "150000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "GAP", "material": "", "color": "", "panjang": "74", "lebar": "56", "tinggi": "", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "6_1772535015172", "name": "Kemeja kasual Uniqlo size L 100% original", "sku": "SEC-005", "cat": "TOPS", "desc": "Kemeja kasual Uniqlo size L 100% original", "price": "120000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Uniqlo", "material": "", "color": "", "panjang": "76", "lebar": "54", "tinggi": "", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "7_1772535015173", "name": "Alchemist Fragrance - Out West | Extrait de Parfum", "sku": "SEC-006", "cat": "SCENT", "desc": "Alchemist Fragrance - Out West | Extrait de Parfum", "price": "30000", "priceOrig": "", "stock": "30", "size": "Decant", "weight": "200", "brand": "Alchemist", "material": "", "color": "", "panjang": "", "lebar": "", "tinggi": "", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "8_1772535015174", "name": "H&M Regular Fit Hoodie Red Hot Chili Peppers (RHCP) 100% Original", "sku": "SEC-007", "cat": "OUTERWEAR", "desc": "H&M Regular Fit Hoodie Red Hot Chili Peppers (RHCP) 100% Original", "price": "300000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "H&M", "material": "", "color": "", "panjang": "70", "lebar": "56", "tinggi": "", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "9_1772535015175", "name": "Von Dutch Workshirt Sage Green 100% Original", "sku": "SEC-008", "cat": "TOPS", "desc": "Von Dutch Workshirt Sage Green 100% Original", "price": "250000", "priceOrig": "", "stock": "1", "size": "L", "weight": "1000", "brand": "Von Dutch", "material": "", "color": "", "panjang": "74", "lebar": "56", "tinggi": "", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "10_1772535015176", "name": "Bespoke Project - Celana Jeans pria Digger Raw Denim Slim Tappered", "sku": "SEC-009", "cat": "DENIM", "desc": "Bespoke Project - Celana Jeans pria Digger Raw Denim Slim Tappered", "price": "200000", "priceOrig": "", "stock": "1", "size": "32", "weight": "1000", "brand": "Bespoke Project", "material": "", "color": "", "panjang": "105", "lebar": "88", "tinggi": "", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "11_1772535015177", "name": "Eiger Z - Weekender Ruck 32L 1F Carrier", "sku": "SEC-010", "cat": "ACCESSORIES", "desc": "Eiger Z - Weekender Ruck 32L 1F Carrier", "price": "400000", "priceOrig": "", "stock": "1", "size": "32L", "weight": "1000", "brand": "Eiger Adventure", "material": "", "color": "", "panjang": "31", "lebar": "18.5", "tinggi": "54", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}, {"id": "12_1772535015178", "name": "Maternal Disaster - Tiro Bags Duffel bag 100% Original", "sku": "SEC-011", "cat": "ACCESSORIES", "desc": "Maternal Disaster - Tiro Bags Duffel bag 100% Original", "price": "250000", "priceOrig": "", "stock": "1", "size": "40L", "weight": "1000", "brand": "Maternal Disaster", "material": "", "color": "", "panjang": "55", "lebar": "28", "tinggi": "26", "condition": "Second — Like New", "status": "available", "badge": "new", "shopee": "https://shopee.co.id/seconderaco", "notes": "", "mainImg": null, "extraImgs": [null, null, null, null, null, null, null], "createdAt": "03/03/2026"}];
 
 function loadProducts() {
   if (!GS_URL) {
@@ -1029,7 +1043,8 @@ function renderCatalog() {
     <div class="product-card">
       <div class="card-img-wrap" onclick="openDetail('${p.id}')">
         ${p.mainImg ? `<img src="${p.mainImg}" alt="${p.name}">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:40px;">&#128247;</div>`}
-        ${p.badge ? `<div class="card-badge ${p.badge==='sale'?'sale':''} ${p.badge==='new'?'new':''}">${p.badge.toUpperCase()}</div>` : ''}
+        ${p.badge ? `<div class="card-badge ${p.badge}">${p.badge.replace('-',' ').toUpperCase()}</div>` : ''}
+        ${p.badge==='coming-soon' ? `<div class="card-coming-overlay"><span>COMING SOON</span></div>` : ''}
         <div class="card-sku">${p.sku}</div>
       </div>
       <div class="card-body">
@@ -1054,6 +1069,7 @@ function renderCatalog() {
 function stockClass(p) {
   if(p.status==='sold') return 'stock-out';
   if(p.status==='reserved') return 'stock-low';
+  if(p.badge==='coming-soon') return 'stock-low';
   const s = parseInt(p.stock)||0;
   if(s===0) return 'stock-out';
   if(s<=2) return 'stock-low';
@@ -1062,6 +1078,7 @@ function stockClass(p) {
 function stockLabel(p) {
   if(p.status==='sold') return '&#10007; Terjual';
   if(p.status==='reserved') return '&#9203; Reserved';
+  if(p.badge==='coming-soon') return '&#128336; Coming Soon';
   const s = parseInt(p.stock)||0;
   if(s===0) return '&#10007; Habis';
   if(s<=2) return `&#9888; Stok ${s} (hampir habis)`;
@@ -1069,9 +1086,43 @@ function stockLabel(p) {
 }
 
 // ── IMAGE UPLOAD ──
+// ── CLOUDINARY UPLOAD ──
+function uploadToCloudinary(file, type, idx) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_PRESET);
+  formData.append('folder', 'seconderaco');
+
+  const statusMsg = type === 'main' ? 'foto utama' : 'foto ' + (idx+1);
+  showStatus('⏳ Mengupload ' + statusMsg + ' ke cloud...', 'ok');
+
+  fetch(CLOUDINARY_URL, { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      if (data.secure_url) {
+        if (type === 'main') {
+          document.getElementById('mainImgPreview').src = data.secure_url;
+          document.getElementById('mainImgPreview').dataset.cloudUrl = data.secure_url;
+        } else {
+          extraImgs[idx] = data.secure_url;
+          const img = document.getElementById('extra-preview-'+idx);
+          if(img) img.src = data.secure_url;
+        }
+        showStatus('✓ ' + statusMsg + ' tersimpan di cloud!', 'ok');
+      } else {
+        showStatus('⚠ Gagal upload foto ke cloud: ' + (data.error && data.error.message || 'Error'), 'error');
+      }
+    })
+    .catch(err => {
+      showStatus('⚠ Gagal upload foto, tersimpan lokal saja', 'error');
+      console.error('Cloudinary error:', err);
+    });
+}
+
 function handleMainImg(input) {
   const file = input.files[0];
   if(!file) return;
+  // Show local preview immediately
   const reader = new FileReader();
   reader.onload = e => {
     const preview = document.getElementById('mainImgPreview');
@@ -1081,12 +1132,14 @@ function handleMainImg(input) {
     document.querySelector('#mainUploadArea .upload-text').style.display='none';
   };
   reader.readAsDataURL(file);
+  // Upload to Cloudinary
+  uploadToCloudinary(file, 'main', null);
 }
 
 function buildExtraGrid() {
   const grid = document.getElementById('extraImgGrid');
   grid.innerHTML = '';
-  for(let i=0;i<4;i++) {
+  for(let i=0;i<7;i++) {
     const div = document.createElement('div');
     div.className = 'mini-upload';
     div.id = 'mini-'+i;
@@ -1101,6 +1154,7 @@ function buildExtraGrid() {
 function handleExtraImg(input, idx) {
   const file = input.files[0];
   if(!file) return;
+  // Show local preview immediately
   const reader = new FileReader();
   reader.onload = e => {
     extraImgs[idx] = e.target.result;
@@ -1111,6 +1165,8 @@ function handleExtraImg(input, idx) {
     document.querySelector('#mini-'+idx).firstChild.textContent = '';
   };
   reader.readAsDataURL(file);
+  // Upload to Cloudinary
+  uploadToCloudinary(file, 'extra', idx);
 }
 
 function removeExtra(idx) {
@@ -1181,7 +1237,10 @@ function saveProduct() {
     shopee,
     notes: document.getElementById('prodNotes').value.trim(),
     condition: document.getElementById('prodCondition').value,
-    mainImg: hasImg ? mainImg : null,
+    panjang: document.getElementById('prodPanjang').value.trim(),
+    lebar: document.getElementById('prodLebar').value.trim(),
+    tinggi: document.getElementById('prodTinggi').value.trim(),
+    mainImg: hasImg ? (document.getElementById('mainImgPreview').dataset.cloudUrl || mainImg) : null,
     extraImgs: [...extraImgs],
     createdAt: editId ? (products.find(p=>p.id===editId)||{}).createdAt : new Date().toLocaleDateString('id-ID'),
   };
@@ -1222,6 +1281,9 @@ function editProduct(id) {
   document.getElementById('prodShopee').value = p.shopee||'';
   document.getElementById('prodNotes').value = p.notes||'';
   document.getElementById('prodCondition').value = p.condition||'Baru';
+  document.getElementById('prodPanjang').value = p.panjang||'';
+  document.getElementById('prodLebar').value = p.lebar||'';
+  document.getElementById('prodTinggi').value = p.tinggi||'';
 
   if(p.mainImg) {
     const prev = document.getElementById('mainImgPreview');
@@ -1230,8 +1292,10 @@ function editProduct(id) {
     document.querySelector('#mainUploadArea .upload-text').style.display='none';
   }
 
-  extraImgs = p.extraImgs ? [...p.extraImgs] : [null,null,null,null];
-  for(let i=0;i<4;i++) {
+  extraImgs = p.extraImgs ? [...p.extraImgs] : [null,null,null,null,null,null,null];
+  // Pad to 7 if shorter
+  while(extraImgs.length < 7) extraImgs.push(null);
+  for(let i=0;i<7;i++) {
     if(extraImgs[i]) {
       const img = document.getElementById('extra-preview-'+i);
       if(img) { img.src=extraImgs[i]; img.classList.add('visible'); }
@@ -1256,7 +1320,7 @@ function resetForm() {
   document.getElementById('editId').value='';
   ['prodName','prodSku','prodCat','prodDesc','prodPrice','prodPriceOrig',
    'prodStock','prodSize','prodWeight','prodBrand','prodMaterial','prodColor',
-   'prodShopee','prodNotes'].forEach(id=>{
+   'prodShopee','prodNotes','prodPanjang','prodLebar','prodTinggi'].forEach(id=>{
     const el = document.getElementById(id);
     if(el) el.value='';
   });
@@ -1268,7 +1332,7 @@ function resetForm() {
   document.querySelector('#mainUploadArea .upload-icon').style.display='';
   document.querySelector('#mainUploadArea .upload-text').style.display='';
   document.getElementById('mainImg').value='';
-  extraImgs=[null,null,null,null];
+  extraImgs=[null,null,null,null,null,null,null];
   buildExtraGrid();
 }
 
@@ -1301,7 +1365,7 @@ function openDetail(id) {
         <div class="detail-label">Deskripsi</div>
         <div class="detail-desc">${p.desc}</div>
         <div class="detail-meta">
-          ${p.size?`<div class="meta-item"><div class="detail-label">Ukuran</div><div class="meta-val">${p.size}</div></div>`:''}          ${p.color?`<div class="meta-item"><div class="detail-label">Warna</div><div class="meta-val">${p.color}</div></div>`:''}          ${p.material?`<div class="meta-item"><div class="detail-label">Material</div><div class="meta-val">${p.material}</div></div>`:''}          ${p.brand?`<div class="meta-item"><div class="detail-label">Brand Asal</div><div class="meta-val">${p.brand}</div></div>`:''}          ${p.weight?`<div class="meta-item"><div class="detail-label">Berat</div><div class="meta-val">${p.weight} gram</div></div>`:''}          <div class="meta-item"><div class="detail-label">Status</div><div class="meta-val ${stockClass(p)}">${stockLabel(p)}</div></div>
+          ${p.size?`<div class="meta-item"><div class="detail-label">Ukuran</div><div class="meta-val">${p.size}</div></div>`:''}          ${p.color?`<div class="meta-item"><div class="detail-label">Warna</div><div class="meta-val">${p.color}</div></div>`:''}          ${p.material?`<div class="meta-item"><div class="detail-label">Material</div><div class="meta-val">${p.material}</div></div>`:''}          ${p.brand?`<div class="meta-item"><div class="detail-label">Brand Asal</div><div class="meta-val">${p.brand}</div></div>`:''}          ${p.weight?`<div class="meta-item"><div class="detail-label">Berat</div><div class="meta-val">${p.weight} gram</div></div>`:''}          ${(p.panjang||p.lebar||p.tinggi)?`<div class="meta-item"><div class="detail-label">Dimensi</div><div class="meta-val">${p.panjang||'-'} × ${p.lebar||'-'} × ${p.tinggi||'-'} cm</div></div>`:''}          <div class="meta-item"><div class="detail-label">Status</div><div class="meta-val ${stockClass(p)}">${stockLabel(p)}</div></div>
         </div>
         ${p.notes?`<hr class="detail-divider"><div class="detail-label">Catatan Seller</div><div class="detail-desc" style="font-size:12px;">${p.notes}</div>`:''}
         <hr class="detail-divider">
