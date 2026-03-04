@@ -901,7 +901,7 @@ const CLOUDINARY_PRESET = 'Second Era Co.';
 const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload';
 
 // ── GOOGLE SHEETS ──
-const GS_URL = 'https://script.google.com/macros/s/AKfycbwcmjIyFU-mWYdvEIgsY7_u_hu0upJWfPiWdm0L4VBCVjucCe4MxeiSmnrzpRypuiYf/exec';
+const GS_URL = 'https://script.google.com/macros/s/AKfycbw4pogP6aKp0i89s69D4PCJc7dl3dDzq3CDfThP3eKTcfHII60Ihy__wwXcZEuq5-uZ/exec';
 
 // ── STATE ──
 let products = [];
@@ -985,19 +985,28 @@ function saveProducts() {
   if (!GS_URL) return;
   
   showStatus('⏳ Menyimpan ke Google Sheets...', 'ok');
-  // Use no-cors GET with encoded data (GAS CORS workaround)
-  const payload = encodeURIComponent(JSON.stringify({ action: 'save', products: products }));
-  fetch(GS_URL + '?method=POST&payload=' + payload)
-  .then(r => r.json())
-  .then(data => {
-    if (data.ok) {
-      showStatus('✓ Tersimpan ke Google Sheets (' + data.saved + ' produk)', 'ok');
-    } else {
-      showStatus('⚠ Error: ' + (data.error || 'Gagal simpan'), 'error');
-    }
+
+  // Strip base64 images before sending - only keep Cloudinary URLs (http/https)
+  const cleanProducts = products.map(p => {
+    const isUrl = v => v && (v.startsWith('http://') || v.startsWith('https://'));
+    return Object.assign({}, p, {
+      mainImg: isUrl(p.mainImg) ? p.mainImg : (p.mainImg ? '__local__' : null),
+      extraImgs: (p.extraImgs || []).map(img => isUrl(img) ? img : null)
+    });
+  });
+
+  fetch(GS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'save', products: cleanProducts })
+  })
+  .then(() => {
+    showStatus('✓ Tersimpan ke Google Sheets!', 'ok');
   })
   .catch(err => {
     showStatus('⚠ Gagal terhubung ke Sheets, tersimpan lokal saja', 'error');
+    console.error('GS save error:', err);
   });
 }
 
