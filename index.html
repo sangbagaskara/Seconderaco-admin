@@ -701,6 +701,7 @@
 </style>
 </head>
 <body>
+<div id="gs-status" style="position:fixed;bottom:20px;right:20px;z-index:9999;padding:10px 18px;background:#1B1B1D;color:#F0EDDC;font-family:monospace;font-size:11px;border-radius:2px;display:none;"></div>
 
 
 
@@ -900,7 +901,7 @@ const CLOUDINARY_PRESET = 'Second Era Co.';
 const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload';
 
 // ── GOOGLE SHEETS ──
-const GS_URL = 'https://script.google.com/macros/s/AKfycbzx9r562OaOWNZXS-1r-QF6d6kWV4rIq4WAnzX37PIJo5NvW4D0pfxP7LYoNKOOueVF/exec';
+const GS_URL = 'https://script.google.com/macros/s/AKfycbwcmjIyFU-mWYdvEIgsY7_u_hu0upJWfPiWdm0L4VBCVjucCe4MxeiSmnrzpRypuiYf/exec';
 
 // ── STATE ──
 let products = [];
@@ -913,6 +914,7 @@ const CATS = ['ALL','OUTERWEAR','DENIM','TOPS','ACCESSORIES','FOOTWEAR','SCENT',
 
 function showStatus(msg, type) {
   const el = document.getElementById('gs-status');
+  if(!el) { console.log('[Status]', msg); return; }
   el.textContent = msg;
   el.style.display = 'block';
   el.style.background = type === 'error' ? '#D13B3B' : '#1B1B1D';
@@ -983,10 +985,9 @@ function saveProducts() {
   if (!GS_URL) return;
   
   showStatus('⏳ Menyimpan ke Google Sheets...', 'ok');
-  fetch(GS_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'save', products: products })
-  })
+  // Use no-cors GET with encoded data (GAS CORS workaround)
+  const payload = encodeURIComponent(JSON.stringify({ action: 'save', products: products }));
+  fetch(GS_URL + '?method=POST&payload=' + payload)
   .then(r => r.json())
   .then(data => {
     if (data.ok) {
@@ -1013,6 +1014,7 @@ function switchTab(tab) {
 // ── FILTERS ──
 function buildFilters() {
   const wrap = document.getElementById('filterBtns');
+  if(!wrap) return;
   wrap.innerHTML = '';
   CATS.forEach(c => {
     const b = document.createElement('button');
@@ -1027,8 +1029,9 @@ function buildFilters() {
 function renderCatalog() {
   const grid = document.getElementById('catalogGrid');
   const count = document.getElementById('catalogCount');
+  if(!grid) return;
   const filtered = activeFilter==='ALL' ? products : products.filter(p=>p.cat===activeFilter);
-  count.textContent = filtered.length + ' produk';
+  if(count) count.textContent = filtered.length + ' produk';
 
   if(!filtered.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
