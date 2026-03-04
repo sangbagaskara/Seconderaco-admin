@@ -954,15 +954,14 @@ function loadProducts() {
   fetch(GS_URL + '?action=get')
     .then(r => r.json())
     .then(data => {
-      if (data.ok && data.products) {
-        // Merge sheet data with seed (keep seed products not yet in sheet)
-        const sheetSkus = new Set(data.products.map(p => p.sku));
-        const missing = SEED_PRODUCTS.filter(p => !sheetSkus.has(p.sku));
-        products = [...data.products, ...missing];
+      if (data.ok && data.products && data.products.length > 0) {
+        // Sheets berhasil load — pakai data Sheets saja sebagai sumber kebenaran
+        products = data.products;
         showStatus('✓ ' + products.length + ' produk dimuat dari Google Sheets', 'ok');
       } else {
+        // Sheets kosong — fallback ke SEED
         products = [...SEED_PRODUCTS];
-        showStatus('Data sheet kosong, menggunakan data default', 'ok');
+        showStatus('Sheet kosong, menggunakan data default', 'ok');
       }
       buildFilters(); renderCatalog();
     })
